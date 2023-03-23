@@ -27,6 +27,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/sign_up', [AuthController::class, 'sign_up']);
     Route::post('/sign_in', [AuthController::class, 'sign_in']);
     Route::post('/sign_out', [AuthController::class, 'sign_out'])->middleware('auth:sanctum');
+    Route::post('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 });
 
 Route::prefix('users')->group(function (){
@@ -37,13 +38,6 @@ Route::prefix('users')->group(function (){
     Route::delete('/delete/{id}', [UserController::class, 'destroy']);
 });
 
-Route::prefix('customer')->group(function (){
-    Route::get('/index', [CustomerController::class, 'index']);
-    Route::get('/show/{id}', [CustomerController::class, 'show']);
-    Route::post('/store', [CustomerController::class, 'store']);
-    Route::put('/update/{id}', [CustomerController::class, 'update']);
-    Route::delete('/delete/{id}', [CustomerController::class, 'destroy']);
-});
 
 Route::prefix('products')->middleware(['auth:sanctum'])->group(function (){
     Route::get('/index', [ProductController::class, 'index']);

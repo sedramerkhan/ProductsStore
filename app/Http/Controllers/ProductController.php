@@ -7,6 +7,7 @@ use App\Http\Requests\ProductRequest;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Models\Product;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,10 @@ class ProductController extends Controller
 
     private function getAuth()
     {
-        return auth('user')->user();
+        $user = auth()->user();
+        if (!is_null($user))
+            return $user->type == 'u' ? $user : null;
+        return null;
     }
 
     public function index()
@@ -81,7 +85,7 @@ class ProductController extends Controller
         );
     }
 
-    public function update(Request $request, $id)
+    public function update(ProductRequest $request, $id)
     {
         $user = $this->getAuth();
         if (is_null($user)) {
@@ -92,13 +96,16 @@ class ProductController extends Controller
             return JsonResponse::notFound();
         }
 
-        if ($user->id != $data->user_id) {
+//        if ($user->id != $data->user_id) {
+//            return JsonResponse::unauthorized();
+//        }
+        if (! Gate::allows('update-product', [$user,$data])) {
             return JsonResponse::unauthorized();
         }
-        $validator = $this->validation($request);
-        if ($validator->fails()) {
-            return JsonResponse::validationError($validator->errors());
-        }
+//        $validator = $this->validation($request);
+//        if ($validator->fails()) {
+//            return JsonResponse::validationError($validator->errors());
+//        }
 
         $data->update(array_merge(
             $request->all(),

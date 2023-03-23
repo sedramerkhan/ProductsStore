@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\PersonalAccessToken;
 use Mockery\Exception;
 
 class AuthController extends Controller
@@ -29,20 +30,18 @@ class AuthController extends Controller
     public function sign_up(Request $request)
     {
         try {
-            $validator = $this->sign_up_validator($request, ($request->type == 'u') ? 'users' : 'customers');
+            $validator = $this->sign_up_validator($request,'users');
             if ($validator->fails()) {
                 return JsonResponse::validationError($validator->errors());
             }
 
-            $data = ['name' => $request->name,
-                'phone_number' => $request->phone_number,
-                'password' => Hash::make($request->password)];
+            $user = User::create(array_merge(
+                $request->except('password'),
+                ['password' => Hash::make($request->password)]));
 
-            $user = ($request->type == 'u') ? [User::create($data), "User"] : [Customer::create($data), 'Customer'];
-
-            return JsonResponse::success($user[1] . ' is Created Successfully',
+            return JsonResponse::success('User is Created Successfully',
                 null,
-                $user[0]->createToken("API TOKEN")->plainTextToken);
+                $user->createToken("API TOKEN")->plainTextToken);
 
 
         } catch (Exception $th) {
@@ -69,39 +68,17 @@ class AuthController extends Controller
                 return JsonResponse::validationError($validator->errors());
             }
             //Way1
-            $user = [User::where('phone_number', $request->phone_number)->first(), "User"];
-            if (is_null($user[0]) or Hash::check($user[0]->password, $request->password)) {
-                $user = [Customer::where('phone_number', $request->phone_number)->first(), 'Customer'];
+            $user = User::where('phone_number', $request->phone_number)->first();
 
-            }
-
-            if (is_null($user[0]) or Hash::check($user[0]->password, $request->password)) {
+            if (Hash::check($user->password, $request->password)) {
                 return JsonResponse::failure(
                     $massage = 'Phone Number & Password does not match with our record.',
                     $code = 401);
             }
 
-//            ///Way 2
-//            if (!Auth::guard('customer2')->attempt($request->only(['phone_number', 'password']))) {
-//                return JsonResponse::failure(
-//                    $massage = 'Phone Number & Password does not match with our record.',
-//                    $code = 401);
-//            }
-//            if (!Auth::attempt($request->only(['phone_number', 'password']))) {
-//                return JsonResponse::failure(
-//                    $massage = 'Phone Number & Password does not match with our record.',
-//                    $code = 401);
-//            }
-//
-//            $user = [User::where('phone_number', $request->phone_number)->first(),
-//                "User"] ;
-//            if (is_null($user[0])) {
-//                $user =  [Customer::where('phone_number', $request->phone_number)->first(), 'Customer'];
-//            }
-            ////
-            return JsonResponse::success($user[1] . ' Logged In Successfully',
+            return JsonResponse::success('User Logged In Successfully',
                 null,
-                $user[0]->createToken("API TOKEN")->plainTextToken);
+                $user->createToken("API TOKEN")->plainTextToken);
 
 
         } catch (Exception $th) {
@@ -111,9 +88,11 @@ class AuthController extends Controller
 
     public function sign_out()
     {
-//        dd(auth()->user()->id);
         auth()->user()->tokens()->delete();
-//       return auth()->user();
-        return "deleted Successfully";
+        return JsonResponse::success("Sign out Successfully");
+    }
+
+    public function me(){
+        return auth()->user();
     }
 }

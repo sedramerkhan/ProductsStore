@@ -27,8 +27,7 @@ class OrderRequest extends FormRequest
     public function rules()
     {
         return [
-                'total_price' => 'required|numeric',
-                'discount' => 'required|numeric'
+                'discount' => 'numeric'
             ]
             +
             ($this->isMethod('POST') ? $this->store() : $this->update());

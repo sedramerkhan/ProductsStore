@@ -3,19 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Http\Json\JsonResponse;
-use App\Http\Requests\ProductRequest;
-use App\Http\Requests\StoreOrderRequest;
-use App\Http\Requests\UpdateOrderRequest;
+use App\Http\Requests\OrderRequest;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+
 
 class OrderController extends Controller
 {
     private function getAuth()
     {
-        return auth('customer')->user();
+        $user = auth()->user();
+        if (!is_null($user))
+            return $user->type == 'c' ? $user : null;
+        return null;
     }
 
     public function index()
@@ -61,14 +62,6 @@ class OrderController extends Controller
 
     }
 
-    public function validation($request)
-    {
-        return Validator::make($request->all(),
-            [
-                'discount' => 'numeric',
-            ]);
-    }
-
     private function getProductsPrices($products)
     {
         $ids = array_map(function ($product) {
@@ -79,27 +72,29 @@ class OrderController extends Controller
         return Product::whereIn('id', $ids)->sum('price');
     }
 
-    public function store(Request $request)
+    public function store(OrderRequest $request)
     {
         $customer = $this->getAuth();
         if (is_null($customer)) {
             return JsonResponse::unauthorized();
         }
-        $validator = $this->validation($request);
-        if ($validator->fails()) {
-            return JsonResponse::validationError($validator->errors());
-        }
-//        return $request;
-//        $total_price = 1000;
+//        $validator = $this->validation($request);
+//        if ($validator->fails()) {
+//            return JsonResponse::validationError($validator->errors());
+//        }
+
 
         $total_price = $this->getProductsPrices($request->products);
 
+        $data = [
+            'total_price' => $total_price,
+            'customer_id' => $customer->id
+        ];
 
-        $order = Order::create(
-            ['discount' => $request->discount,
-                'total_price' => $total_price,
-                'customer_id' => $customer->id]
-        );
+        if ($request->discount != null)
+            $data['discount'] = $request->discount;
+
+        $order = Order::create($data);
 
         foreach ($request->products as $product)
             $order->products()->attach($product['id'], ['quantity' => $product['quantity']]);
@@ -114,33 +109,36 @@ class OrderController extends Controller
     public function update(Request $request, $id)
     {
         $customer = $this->getAuth();
-        if ($customer == null) {
+        if (is_null($customer)) {
             return JsonResponse::unauthorized();
         }
-        $data = Order::find($id);
-        if (is_null($data)) {
+        $order = Order::find($id);
+        if (is_null($order)) {
             return JsonResponse::notFound();
         }
-        if ($customer->id != $data->customer_id) {
+        if ($customer->id != $order->customer_id) {
             return JsonResponse::unauthorized();
         }
-        $validator = $this->validation($request);
-        if ($validator->fails()) {
-            return JsonResponse::validationError($validator->errors());
-        }
+//        $validator = $this->validation($request);
+//        if ($validator->fails()) {
+//            return JsonResponse::validationError($validator->errors());
+//        }
 
 
-        $data->products()->detach($data->products);
+        $order->products()->detach($order->products);
 
         $total_price = $this->getProductsPrices($request->products);
+        $data = [
+            'total_price' => $total_price,
+            'customer_id' => $customer->id
+        ];
 
-        $data->update(
-            ['discount' => $request->discount,
-                'total_price' => $total_price,
-                'customer_id' => $customer->id]
-        );
+        if ($request->discount != null)
+            $data['discount'] = $request->discount;
+
+        $order->update($data);
         foreach ($request->products as $product)
-            $data->products()->attach($product['id'], ['quantity' => $product['quantity']]);
+            $order->products()->attach($product['id'], ['quantity' => $product['quantity']]);
 
         return JsonResponse::success(
             $message = 'Updated Successfully',
