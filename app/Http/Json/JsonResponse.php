@@ -7,7 +7,6 @@ class JsonResponse
 
     public static function success($message='',$data = null,$token = null){
         $jsonArray = [
-            'status' => true,
             'message' => $message,
             ];
         if($data != null)
@@ -17,9 +16,8 @@ class JsonResponse
         return response()->json($jsonArray, 200);
     }
 
-    public static function failure($message='',$code=null,$errors=null,$status= false){
+    public static function failure($message='',$code=null,$errors=null){
         $jsonArray = [
-            'status' => $status,
             'message' => $message,
         ];
         if($errors != null)
@@ -35,10 +33,14 @@ class JsonResponse
     }
 
     public static function validationError($validationErrors){
+
+        $errorsValues= array_map(function ($value){
+            return $value[0];
+        },array_values($validationErrors->toArray()));
         return JsonResponse::failure(
             $massage = 'Validation Error',
             $code = 422,
-            $errors= $validationErrors);
+            $errors= $errorsValues);
     }
 
     public static function notFound(){

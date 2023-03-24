@@ -8,11 +8,13 @@ use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Models\Image;
 use App\Models\Product;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use function League\Flysystem\delete;
+use function Nette\Utils\flatten;
 
 
 class ProductController extends Controller
@@ -87,12 +89,31 @@ class ProductController extends Controller
         return null;
     }
 
-    public function store(ProductRequest $request)
+    function validator(Request $request)
+    {
+        //Validated
+        return Validator::make($request->all(),
+            [
+                'name' => 'required|string|max:15',
+                'category' => 'required|string|max:25',
+                'price' => 'required|numeric',
+                'discount' => 'numeric',
+                'images' => 'required',
+                'images.*'=> 'image|mimes:jpeg,png,jpg,gif,svg|max:2048'
+            ]);
+    }
+
+    public function store(Request $request)
     {
 
         $user = $this->getAuth();
         if (is_null($user)) {
             return JsonResponse::unauthorized();
+        }
+
+        $validator = $this->validator($request);
+        if ($validator->fails()) {
+            return JsonResponse::validationError($validator->errors());
         }
 
         if (!$request->hasFile('images'))
