@@ -13,6 +13,14 @@ use function Termwind\ValueObjects\pr;
 
 class OrderController extends Controller
 {
+
+    private ProductController $productController;
+
+    public function __construct(ProductController $productController)
+    {
+        $this->productController = $productController;
+    }
+
     private function getAuth()
     {
         $user = auth()->user();
@@ -25,14 +33,22 @@ class OrderController extends Controller
     {
         $products = array_map(function ($product) {
             $p = $product;
-            $p['quantity'] = $product['pivot']['quantity'];
             unset($p['pivot']);
+
+            $images = $this->productController->getImages($product['id']);
+            $p['images'] = $images;
             return $p;
+        }, $data->products->toArray()
+        );
+
+        $quantities = array_map(function ($product) {
+            return $product['pivot']['quantity'];
         }, $data->products->toArray()
         );
 
         $order = Order::find($data->id);
         $order['products'] = $products;
+        $order['quantities'] = $quantities;
         return $order;
     }
 
@@ -50,7 +66,7 @@ class OrderController extends Controller
 
         $customOrders = [];
         foreach ($orders as $data) {
-            array_push($customOrders ,$this->customData($data));
+            array_push($customOrders, $this->customData($data));
         }
 
         return JsonResponse::success(
@@ -61,15 +77,16 @@ class OrderController extends Controller
 
     public function show($id)
     {
-        $data = Order::with('products')->find($id);
+        $order = Order::with('products')->find($id);
 
-        $order = $this->customData($data);
-        if (is_null($data)) {
+
+        $order = $this->customData($order);
+        if (is_null($order)) {
             return JsonResponse::notFound();
         }
 
         $user = $this->getAuth();
-        if (!is_null($user) and $user->id != $data->customer_id) {
+        if (!is_null($user) and $user->id != $order->customer_id) {
             return JsonResponse::unauthorized();
         }
 
@@ -83,12 +100,16 @@ class OrderController extends Controller
 
     private function getProductsPrices($products)
     {
-        $ids = array_map(function ($product) {
-            return $product['id'];
-        },
-            $products
+        $productsInfo = Product::whereIn('id', array_column($products, 'id'))->get();
+
+        $prices = array_map(
+            function ($product, $quantity) {
+                return $product['price'] * $quantity;
+            },
+            $productsInfo->toArray(), array_column($products, 'quantity')
         );
-        return Product::whereIn('id', $ids)->sum('price');
+
+        return array_sum($prices);
     }
 
     function validator(Request $request)
@@ -96,9 +117,10 @@ class OrderController extends Controller
         return Validator::make($request->all(),
             [
                 'products' => 'required',
-                'products.quantity' => 'required|numeric'
+//                'products.*' => 'required|numeric'
             ]);
     }
+
     public function store(Request $request)
     {
         $customer = $this->getAuth();
@@ -120,11 +142,13 @@ class OrderController extends Controller
 
         $order = Order::create($data);
 
+
         foreach ($request->products as $product)
             $order->products()->attach($product['id'], ['quantity' => $product['quantity']]);
 
 
-        $order['products'] = $request->products;
+        $order = Order::with('products')->find($order->id);
+        $order = $this->customData($order);
         return JsonResponse::success(
             $message = 'Created Successfully',
             $data = $order,
@@ -133,6 +157,7 @@ class OrderController extends Controller
 
     public function update(Request $request, $id)
     {
+
         $customer = $this->getAuth();
         if (is_null($customer)) {
             return JsonResponse::unauthorized();
@@ -151,8 +176,8 @@ class OrderController extends Controller
             return JsonResponse::validationError($validator->errors());
         }
 
-
         $order->products()->detach($order->products);
+
 
         $total_price = $this->getProductsPrices($request->products);
         $data = [
@@ -163,13 +188,17 @@ class OrderController extends Controller
         if ($request->discount != null)
             $data['discount'] = $request->discount;
 
-        $order->update($data);
+
         foreach ($request->products as $product)
             $order->products()->attach($product['id'], ['quantity' => $product['quantity']]);
 
+        $order->update($data);
+
+        $order = Order::with('products')->find($order->id);
+        $order = $this->customData($order);
         return JsonResponse::success(
             $message = 'Updated Successfully',
-            $data = Order::with('products')->find($id),
+            $data = $order,
         );
     }
 

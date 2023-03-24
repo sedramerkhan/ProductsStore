@@ -4,17 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Json\JsonResponse;
 use App\Http\Requests\ProductRequest;
-use App\Http\Requests\StoreProductRequest;
-use App\Http\Requests\UpdateProductRequest;
 use App\Models\Image;
 use App\Models\Product;
-use Illuminate\Contracts\Support\Arrayable;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
-use function League\Flysystem\delete;
-use function Nette\Utils\flatten;
+
 
 
 class ProductController extends Controller
@@ -39,7 +34,7 @@ class ProductController extends Controller
         );
     }
 
-    private function getImages($id)
+    public function getImages($id)
     {
         $images = Image::where('product_id', $id)->select('image')->get();
 
@@ -67,10 +62,14 @@ class ProductController extends Controller
         }
     }
 
-    public function show($id)
-    {
+    public function getProduct($id){
         $data = Product::find($id);
         $data['images'] = $this->getImages($id);
+        return $data;
+    }
+    public function show($id)
+    {
+        $data = $this->getProduct($id);
         if (is_null($data)) {
             return JsonResponse::notFound();
         }
