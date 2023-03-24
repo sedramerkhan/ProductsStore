@@ -6,6 +6,7 @@ use App\Http\Json\JsonResponse;
 use App\Http\Requests\ProductRequest;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
+use App\Models\Image;
 use App\Models\Product;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
@@ -26,7 +27,7 @@ class ProductController extends Controller
     public function index()
     {
         $products = Product::all();
-        if(empty($products)){
+        if (empty($products)) {
             return JsonResponse::success(
                 $message = 'No Products Yet',
             );
@@ -39,13 +40,9 @@ class ProductController extends Controller
 
     public function show($id)
     {
-//        $user = $this->getAuth();
-//        if (is_null($user)) {
-//           return JsonResponse::unauthorized();
-//        }
 
         $data = Product::find($id);
-        if(is_null($data)){
+        if (is_null($data)) {
             return JsonResponse::notFound();
         }
         return JsonResponse::success(
@@ -55,15 +52,6 @@ class ProductController extends Controller
 
     }
 
-//    public function validation($request){
-//        return Validator::make($request->all(),
-//            [
-//                'name'=>'required|string|max:15',
-//                'category' =>'required|string|max:25',
-//                'price'=>'required|numeric'
-//            ]);
-//    }
-
     public function store(ProductRequest $request)
     {
 
@@ -71,14 +59,39 @@ class ProductController extends Controller
         if (is_null($user)) {
             return JsonResponse::unauthorized();
         }
-//        $validator = $this->validation($request); //there is no need for these because using FormRequest
-//        if ($validator->fails()) {
-//            return JsonResponse::validationError($validator->errors());
-//        }
-        $product = Product::create(array_merge(
-            $request->all(),
-            ['user_id' => $user->id]
-        ));
+
+        if (!$request->hasFile('images'))
+            return JsonResponse::failure('there is no images', 400);
+
+//        return $request->file('images');
+//        $product = "";
+        try {
+
+            $product = Product::create(array_merge(
+                $request->except('images'),
+                ['user_id' => $user->id]
+            ));
+
+            $images = [];
+            //php artisan storage:link
+            foreach ($request->file('images') as $file) {
+                $dest_path = 'public/images/products';
+                $image_name = time() . '.image.png';
+                $file->storeAs($dest_path, $image_name);
+
+                $image = Image::create([
+                        'image' => "storage/images/products/" . $image_name,
+                        'product_id' => $product->id
+                    ]
+                );
+                array_push($images, $image->image);
+            }
+
+            $product['images'] = $images;
+        } catch (\Exception $e) {
+            return JsonResponse::failure('you cannot insert the Service', 400);
+        }
+
         return JsonResponse::success(
             $message = 'Created Successfully',
             $data = $product,
@@ -92,14 +105,14 @@ class ProductController extends Controller
             return JsonResponse::unauthorized();
         }
         $data = Product::find($id);
-        if($data == null){
+        if ($data == null) {
             return JsonResponse::notFound();
         }
 
 //        if ($user->id != $data->user_id) {
 //            return JsonResponse::unauthorized();
 //        }
-        if (! Gate::allows('update-product', [$user,$data])) {
+        if (!Gate::allows('update-product', [$user, $data])) {
             return JsonResponse::unauthorized();
         }
 //        $validator = $this->validation($request);
@@ -125,7 +138,7 @@ class ProductController extends Controller
         }
 
         $data = Product::find($id);
-        if(is_null($data)){
+        if (is_null($data)) {
             return JsonResponse::notFound();
         }
 

@@ -32,7 +32,10 @@ class ProductRequest extends FormRequest
         return [
                 'name' => 'required|string|max:15',
                 'category' => 'required|string|max:25',
-                'price' => 'required|numeric'
+                'price' => 'required|numeric',
+                'discount' => 'numeric',
+                'images' => 'required',
+                'images.*'=> 'image|mimes:jpeg,png,jpg,gif,svg|max:2048'
             ]
             +
             ($this->isMethod('POST') ? $this->store() : $this->update());

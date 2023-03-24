@@ -17,13 +17,22 @@ class Product extends Model
         'discount'
     ];
 
+    protected $hidden = [
+        'created_at',
+        'updated_at'
+    ];
+
     public function user()
     {
-        return $this->hasMany(User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function orders()
     {
         return $this->belongsToMany(Order::class, 'order_products', 'product_id', 'order_id');
+    }
+
+    public function images(){
+        return $this->hasMany(Image::class);
     }
 }
