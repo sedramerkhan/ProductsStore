@@ -18,7 +18,7 @@ class Image extends Model
         'created_at',
         'updated_at',
         'product_id',
-        'id'
+
     ];
 
     public function product(){

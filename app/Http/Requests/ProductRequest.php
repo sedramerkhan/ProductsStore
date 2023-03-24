@@ -18,7 +18,6 @@ class ProductRequest extends FormRequest
      */
     public function authorize()
     {
-        $user =auth('user')->user();
         return true;
     }
 

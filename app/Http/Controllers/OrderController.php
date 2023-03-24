@@ -7,6 +7,7 @@ use App\Http\Requests\OrderRequest;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use function Termwind\ValueObjects\pr;
 
 
 class OrderController extends Controller
@@ -19,25 +20,41 @@ class OrderController extends Controller
         return null;
     }
 
+    private function customData($data)
+    {
+        $products = array_map(function ($product) {
+            $p = $product;
+            $p['quantity'] = $product['pivot']['quantity'];
+            unset($p['pivot']);
+            return $p;
+        }, $data->products->toArray()
+        );
+
+        $order = Order::find($data->id);
+        $order['products'] = $products;
+        return $order;
+    }
+
     public function index()
     {
         $user = $this->getAuth();
 
         $orders = is_null($user) ? Order::with('products')->get() :
             Order::with('products')->where('customer_id', $user->id);
-//        if (!is_null($user)) {
-//            return JsonResponse::unauthorized();
-//        }
-
-//        $orders = Order::with('products')->get();
         if (empty($orders)) {
-            return JsonResponse::success(
-                $message = 'No Products Yet',
+            return JsonResponse::failure(
+                $message = 'No Products Yet', 400
             );
         }
+
+        $customOrders = [];
+        foreach ($orders as $data) {
+            array_push($customOrders ,$this->customData($data));
+        }
+
         return JsonResponse::success(
             $message = 'Found',
-            $data = $orders,
+            $data = $customOrders,
         );
     }
 
@@ -45,6 +62,7 @@ class OrderController extends Controller
     {
         $data = Order::with('products')->find($id);
 
+        $order = $this->customData($data);
         if (is_null($data)) {
             return JsonResponse::notFound();
         }
@@ -57,7 +75,7 @@ class OrderController extends Controller
 
         return JsonResponse::success(
             $message = 'Found',
-            $data,
+            $order,
         );
 
     }
@@ -78,11 +96,6 @@ class OrderController extends Controller
         if (is_null($customer)) {
             return JsonResponse::unauthorized();
         }
-//        $validator = $this->validation($request);
-//        if ($validator->fails()) {
-//            return JsonResponse::validationError($validator->errors());
-//        }
-
 
         $total_price = $this->getProductsPrices($request->products);
 
@@ -91,18 +104,16 @@ class OrderController extends Controller
             'customer_id' => $customer->id
         ];
 
-        if ($request->discount != null)
-            $data['discount'] = $request->discount;
-
         $order = Order::create($data);
 
         foreach ($request->products as $product)
             $order->products()->attach($product['id'], ['quantity' => $product['quantity']]);
-//        $order->products()->attach($request->products);
 
+
+        $order['products'] = $request->products;
         return JsonResponse::success(
             $message = 'Created Successfully',
-            $data = Order::with('products')->find($order->id),
+            $data = $order,
         );
     }
 

@@ -27,7 +27,8 @@ class OrderRequest extends FormRequest
     public function rules()
     {
         return [
-                'discount' => 'numeric'
+                'products' => 'required',
+                'products.quantity' => 'required|numeric'
             ]
             +
             ($this->isMethod('POST') ? $this->store() : $this->update());
@@ -42,6 +43,7 @@ class OrderRequest extends FormRequest
             );
         }
     }
+
     protected function store()
     {
         return [];
