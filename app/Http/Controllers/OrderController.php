@@ -7,6 +7,7 @@ use App\Http\Requests\OrderRequest;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use function Termwind\ValueObjects\pr;
 
 
@@ -90,11 +91,24 @@ class OrderController extends Controller
         return Product::whereIn('id', $ids)->sum('price');
     }
 
-    public function store(OrderRequest $request)
+    function validator(Request $request)
+    {
+        return Validator::make($request->all(),
+            [
+                'products' => 'required',
+                'products.quantity' => 'required|numeric'
+            ]);
+    }
+    public function store(Request $request)
     {
         $customer = $this->getAuth();
         if (is_null($customer)) {
             return JsonResponse::unauthorized();
+        }
+
+        $validator = $this->validator($request);
+        if ($validator->fails()) {
+            return JsonResponse::validationError($validator->errors());
         }
 
         $total_price = $this->getProductsPrices($request->products);
@@ -127,13 +141,15 @@ class OrderController extends Controller
         if (is_null($order)) {
             return JsonResponse::notFound();
         }
+
         if ($customer->id != $order->customer_id) {
             return JsonResponse::unauthorized();
         }
-//        $validator = $this->validation($request);
-//        if ($validator->fails()) {
-//            return JsonResponse::validationError($validator->errors());
-//        }
+
+        $validator = $this->validator($request);
+        if ($validator->fails()) {
+            return JsonResponse::validationError($validator->errors());
+        }
 
 
         $order->products()->detach($order->products);

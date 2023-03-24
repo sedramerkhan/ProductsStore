@@ -91,7 +91,6 @@ class ProductController extends Controller
 
     function validator(Request $request)
     {
-        //Validated
         return Validator::make($request->all(),
             [
                 'name' => 'required|string|max:15',
@@ -115,9 +114,6 @@ class ProductController extends Controller
         if ($validator->fails()) {
             return JsonResponse::validationError($validator->errors());
         }
-
-        if (!$request->hasFile('images'))
-            return JsonResponse::failure('there are no images', 400);
 
         try {
 
@@ -151,13 +147,14 @@ class ProductController extends Controller
             return JsonResponse::notFound();
         }
 
-        if (!$request->hasFile('images'))
-            return JsonResponse::failure('there are no images', 400);
+        $validator = $this->validator($request);
+        if ($validator->fails()) {
+            return JsonResponse::validationError($validator->errors());
+        }
 
-
-//        if ($user->id != $data->user_id) {
-//            return JsonResponse::unauthorized();
-//        }
+        if ($user->id != $product->user_id) {
+            return JsonResponse::unauthorized();
+        }
 //        if (!Gate::allows('update-product', [$product])) {
 //            return JsonResponse::unauthorized();
 //        } //todo
